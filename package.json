@@ -1,0 +1,25 @@
+{
+  "name": "av1",
+  "version": "1.0.0",
+  "description": "O objetivo principal é desenvolver um sistema de linha de comando (CLI) para simular e gerenciar o processo de fabricação de uma aeronave, desde o seu cadastro inicial até a entrega para o cliente.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aandrade007/AV1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/aandrade007/AV1/issues"
+  },
+  "homepage": "https://github.com/aandrade007/AV1#readme",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2"
+  }
+}
