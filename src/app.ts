@@ -59,7 +59,6 @@ async function salvarArquivo(file: string, data: any) {
 	await fs.writeFile(file, JSON.stringify(data, null, 2), "utf-8")
 }
 
-// Carrega os dados do arquivo JSON.
 async function carregarArquivo(file: string): Promise<any[]> {
 	try {
 		const txt = await fs.readFile(file, "utf-8")
@@ -89,7 +88,6 @@ async function carregarTodos() {
 	funcionarios = await carregarArquivo(FUNCIONARIOS_FILE)
 	testes = await carregarArquivo(TESTES_FILE)
 
-	// cria o admin inicial se o sistema estiver vazio
 	if (funcionarios.length === 0) {
 		const adminPadrao = new Funcionario("0", "Admin", "000", "Sede", "admin", "123", NivelPermissao.ADMINISTRADOR)
 		funcionarios.push(adminPadrao)
@@ -98,10 +96,9 @@ async function carregarTodos() {
 }
 
 async function cadastrarFuncionario() {
-	if (!exigirNivel([NivelPermissao.ADMINISTRADOR, NivelPermissao.ENGENHEIRO])()) return
+	if (!exigirNivel([NivelPermissao.ADMINISTRADOR])()) return
 	console.log("\n=== Cadastro de Funcionário ===")
 
-	// autoincremento
 	let novoIdNum = 1
 	if (funcionarios.length > 0) {
 		const maxId = Math.max(...funcionarios.map(f => parseInt(f.id) || 0))
@@ -141,16 +138,26 @@ async function cadastrarFuncionario() {
 
 async function autenticar() {
 	console.log("\n=== Autenticação ===")
-	const usuario = await perguntar("Usuário: ")
-	const senha = await perguntar("Senha: ")
+	while (true) {
+		const usuario = await perguntar("Usuário (ou digite 'sair' para voltar): ")
+		
+		if (usuario.toLowerCase() === "sair") {
+			console.log("Autenticação cancelada.")
+			return
+		}
 
-	const f = funcionarios.find((x) => x.usuario === usuario && x.senha === senha)
-	if (!f) {
-		console.log("Usuário/Senha inválidos.")
-		return
+		const senha = await perguntar("Senha: ")
+		const f = funcionarios.find((x) => x.usuario === usuario && x.senha === senha)
+		
+		if (!f) {
+			console.log("Usuário ou senha inválidos! Tente novamente\n")
+		} 
+		else {
+			currentUser = f
+			console.log(`Autenticado como ${f.nome}`)
+			return
+		}
 	}
-	currentUser = f
-	console.log(`Autenticado como ${f.nome}`)
 }
 
 function exigirAutenticacao() {
@@ -179,7 +186,6 @@ function listarFuncionarios() {
 	console.log("------------------------------------------------------------")
 }
 
-// função para checar o nível de permissão do usuário logado.
 function exigirNivel(minNivel: NivelPermissao | NivelPermissao[]) {
 	return (): boolean => {
 		if (!exigirAutenticacao()) return false
@@ -291,10 +297,9 @@ async function atualizarStatusPeca() {
 
 	console.log("\n=== Atualizar Status da Peça ===")
 	
-	// Permite apertar ENTER se a peça for "solta" (estoque geral)
+	// se a peça for "solta" (estoque geral)
 	const codigoAero = await perguntar("Código da aeronave (ou aperte ENTER se a peça não estiver vinculada): ")
-	
-	// Se o usuário digitou um código, validamos se a aeronave existe
+
 	if (codigoAero) {
 		const aero = aeronaves.find((a) => a.codigo === codigoAero)
 		if (!aero) {
@@ -304,9 +309,6 @@ async function atualizarStatusPeca() {
 	}
 
 	const nome = await perguntar("Nome da peça (exato): ")
-	
-	// Busca a peça pelo nome E pelo código da aeronave. 
-	// Se codigoAero for vazio (""), ele vai procurar uma peça onde aeronaveCodigo seja nulo/vazio.
 	const p = pecas.find((x) => x.nome === nome && (x.aeronaveCodigo || "") === codigoAero)
 	
 	if (!p) {
@@ -579,7 +581,6 @@ async function resetarSistema() {
 
 	console.log("\n⚠️  CUIDADO: ÁREA DE PERIGO ⚠️")
 	console.log("Isso apagará todas as aeronaves, peças, etapas, testes e funcionários!")
-
 	console.log("Caso Reset o sistema o login para acessar será:")
     console.log("ID: 0")
     console.log("Usuário: admin")
@@ -592,14 +593,13 @@ async function resetarSistema() {
 		return
 	}
 
-	// 1. Limpa todas as listas de produção
 	aeronaves = []
 	pecas = []
 	etapas = []
 	testes = []
-	currentUser = null // Desloga quem estiver usando
+	currentUser = null
 
-	// 2. O SEGREDO: Recria o Admin Mestre para não perder o acesso ao sistema
+	//Recria o Admin
 	const adminPadrao = new Funcionario(
 		"0", 
 		"Admin", 
@@ -610,10 +610,7 @@ async function resetarSistema() {
 		NivelPermissao.ADMINISTRADOR
 	)
 	
-	// A lista de funcionários passa a ter apenas o admin padrão
 	funcionarios = [adminPadrao]
-
-	// 3. Salva o estado "limpo" (e com o admin) nos arquivos JSON
 	await salvarTodos()
 
 	console.log("Sistema resetado com sucesso!")
@@ -622,77 +619,124 @@ async function resetarSistema() {
 
 async function menu() {
 	console.log("\n=== Sistema de Produção de Aeronaves (Aerocode) ===")
-	console.log("Usuário atual:", currentUser ? `${currentUser.nome}` : "Nenhum")
-	console.log("1. Login")
-	console.log("2. Cadastrar Funcionário")
-	console.log("3. Listar Funcionários")
-	console.log("4. Cadastrar Aeronave")
-	console.log("5. Listar Aeronaves")
-	console.log("6. Cadastrar Peça")
-	console.log("7. Atualizar Status da Peça")
-	console.log("8. Gerenciar Etapas (Nova/Iniciar/Fim/Excluir)")
-	console.log("9. Listar Etapas de Aeronave")
-	console.log("10. Associar Funcionário a Etapa")
+	
+	if (currentUser) {
+		console.log(`Usuário atual: ${currentUser.nome} - Nível: ${currentUser.nivelPermissao}`)
+	} 
+	else {
+		console.log("Usuário atual: Nenhum")
+	}
+
+	if (!currentUser) {
+		console.log("1. Login")
+		console.log("0. Sair do Projeto")
+		
+		const opcao = await perguntar("Escolha: ")
+		if (opcao === "1") {
+			await autenticar()
+		} 
+		else if (opcao === "0") {
+			console.log("Saindo do sistema...")
+			rl.close()
+			return
+		} 
+		else {
+			console.log("Opção inválida, faça login.")
+		}
+		
+		await menu()
+		return
+	}
+
+	const nivel = currentUser.nivelPermissao
+	const isAdmin = nivel === NivelPermissao.ADMINISTRADOR || nivel === "ADMINISTRADOR"
+	const isEngenheiro = nivel === NivelPermissao.ENGENHEIRO || nivel === "ENGENHEIRO"
+
+	if (isAdmin) {
+		console.log("2. Cadastrar Funcionário")
+	}
+
+	console.log("3. Listar Funcionários") 
+
+	if (isAdmin || isEngenheiro) {
+		console.log("4. Cadastrar Aeronave")
+	}
+	
+	console.log("5. Listar Aeronaves") 
+
+	if (isAdmin || isEngenheiro) {
+		console.log("6. Cadastrar Peça")
+		console.log("7. Atualizar Status da Peça")
+		console.log("8. Gerenciar Etapas (Nova/Iniciar/Fim/Excluir)")
+	}
+
+	console.log("9. Listar Etapas de Aeronave") 
+
+	if (isAdmin || isEngenheiro) {
+		console.log("10. Associar Funcionário a Etapa")
+	}
+
 	console.log("11. Registrar Teste")
 	console.log("12. Gerar Relatório Final")
-	console.log("13. Salvar todos os dados")
-    console.log("99. Apagar todos os dados")
-	console.log("0. Sair")
+	console.log("13. Sair da Conta")
+	console.log("0. Sair do Projeto")
+	
+	if (isAdmin) {
+		console.log("99. Apagar todos os dados")
+	}
+	
 
 	const opcao = await perguntar("Escolha: ")
+	
 	switch (opcao) {
-		case "1":
-			await autenticar()
-			break
-		case "2":
+		case "2": 
 			await cadastrarFuncionario()
 			break
-		case "3":
+		case "3": 
 			listarFuncionarios()
 			break
-		case "4":
+		case "4": 
 			await cadastrarAeronave()
 			break
-		case "5":
+		case "5": 
 			listarAeronaves()
 			break
-		case "6":
+		case "6": 
 			await cadastrarPeca()
 			break
-		case "7":
+		case "7": 
 			await atualizarStatusPeca()
 			break
-		case "8":
+		case "8": 
 			await gerenciarEtapas()
 			break
-		case "9":
+		case "9": 
 			await listarEtapasDaAeronave()
 			break
-		case "10":
+		case "10": 
 			await associarFuncionarioEtapa()
 			break
-		case "11":
+		case "11": 
 			await cadastrarTeste()
 			break
-		case "12":
+		case "12": 
 			await gerarRelatorio()
 			break
-		case "13":
-			await salvarTodos()
-			console.log("Dados salvos.")
+		case "13": 
+			console.log("Saindo da conta...")
+			currentUser = null
+			console.clear()
 			break
-        case "99":
+		case "99": 
 			await resetarSistema()
-			console.log("Dados apagados e admin criado.")
-            console.log("ID: 0")
-            console.log("Usuário: admin")
-            console.log("Senha: 123")
 			break
 		case "0":
 			console.log("Saindo...")
 			rl.close()
 			return
 		default:
+			// Se o Operador tentar digitar "4" de teimoso, a função cadastrarAeronave() 
+			// vai barrar ele lá dentro por causa do seu exigirNivel(). É duplamente seguro!
 			console.log("Opção inválida.")
 	}
 
