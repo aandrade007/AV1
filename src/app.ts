@@ -105,17 +105,21 @@ async function cadastrarFuncionario() {
 		novoIdNum = maxId + 1
 	}
 	const id = novoIdNum.toString()
-	const nome = await perguntar("Nome: ")
-	const telefone = await perguntar("Telefone: ")
-	const endereco = await perguntar("Endereço: ")
-	const usuario = await perguntar("Usuário (login): ")
-	
+	const nome = (await perguntar("Nome: ")).trim()
+	const telefone = (await perguntar("Telefone: ")).trim()
+	const endereco = (await perguntar("Endereço: ")).trim()
+	const usuario = (await perguntar("Usuário (login): ")).trim()
 	if (funcionarios.find((f) => f.usuario === usuario)) {
 		console.log("Usuário já existe!")
 		return
 	}
+	const senha = (await perguntar("Senha: ")).trim()
 
-	const senha = await perguntar("Senha: ")
+	if (!nome || !usuario || !senha || !telefone || !endereco) {
+		console.log("Erro: todos os campos são obrigatórios!")
+		return
+	}
+
 	console.log("Nível: 1) ADMINISTRADOR  2) ENGENHEIRO  3) OPERADOR")
 	const nivelStr = await perguntar("Escolha nível: ")
 	let nivel: NivelPermissao
@@ -134,6 +138,73 @@ async function cadastrarFuncionario() {
 	await salvarTodos()
 
 	console.log(`Funcionário cadastrado com sucesso! O ID gerado foi: ${id}`)
+}
+
+async function excluirFuncionario() {
+	if (!exigirNivel([NivelPermissao.ADMINISTRADOR])()) return
+	console.log("\n=== Excluir Funcionário ===")
+
+	if (funcionarios.length === 0) {
+		console.log("Nenhum funcionário cadastrado.")
+		return
+	}
+
+	console.log("\nFuncionários cadastrados:")
+	funcionarios.forEach(f => {
+		console.log(`  [${f.id}] ${f.nome} - ${f.usuario} (${f.nivelPermissao})`)
+	})
+
+	const idBusca = (await perguntar("\nDigite o ID do funcionário a excluir: ")).trim()
+
+	if (!idBusca) {
+		console.log("ID inválido.")
+		return
+	}
+
+	const index = funcionarios.findIndex(f => f.id === idBusca)
+
+	if (index === -1) {
+		console.log("Funcionário não encontrado.")
+		return
+	}
+
+	const funcionario = funcionarios[index]
+
+	if (funcionario.usuario === currentUser?.usuario) {
+		console.log("Você não pode excluir sua própria conta.")
+		return
+	}
+
+	const confirmacao = (await perguntar(`Confirma exclusão de "${funcionario.nome}"? (s/n): `)).trim().toLowerCase()
+
+	if (confirmacao !== "s") {
+		console.log("Exclusão cancelada.")
+		return
+	}
+
+	funcionarios[index].ativo = false
+	await salvarTodos()
+
+	console.log(`Funcionário "${funcionario.nome}" excluído com sucesso!`)
+}
+
+function listarFuncionarios() {
+	const ativos = funcionarios.filter(f => f.ativo !== false)
+	console.log("\n=== Listagem de Funcionários ===")
+	if (ativos.length === 0) {
+		console.log("Nenhum funcionário cadastrado.")
+		return
+	}
+
+	console.log("------------------------------------------------------------")
+	console.log("ID | Nome | Usuário | Nível de Permissão")
+	console.log("------------------------------------------------------------")
+	
+	ativos.forEach((f) => {
+		const nivelNome =  f.nivelPermissao
+		console.log(`${f.id} | ${f.nome} | ${f.usuario} | ${nivelNome}`)
+	})
+	console.log("------------------------------------------------------------")
 }
 
 async function autenticar() {
@@ -166,24 +237,6 @@ function exigirAutenticacao() {
 		return false
 	}
 	return true
-}
-
-function listarFuncionarios() {
-	console.log("\n=== Listagem de Funcionários ===")
-	if (funcionarios.length === 0) {
-		console.log("Nenhum funcionário cadastrado.")
-		return
-	}
-
-	console.log("------------------------------------------------------------")
-	console.log("ID | Nome | Usuário | Nível de Permissão")
-	console.log("------------------------------------------------------------")
-	
-	funcionarios.forEach((f) => {
-		const nivelNome =  f.nivelPermissao
-		console.log(`${f.id} | ${f.nome} | ${f.usuario} | ${nivelNome}`)
-	})
-	console.log("------------------------------------------------------------")
 }
 
 function exigirNivel(minNivel: NivelPermissao | NivelPermissao[]) {
@@ -374,6 +427,13 @@ async function gerenciarEtapas() {
 				console.log("Etapa iniciada.")
 			} 
 			else if (op === "3") {
+				const idx = aero.etapas.indexOf(etapa)
+				if (idx > 0 && aero.etapas[idx - 1].status !== StatusEtapa.CONCLUIDA) {
+					throw new Error("A etapa anterior deve estar concluída antes de finalizar esta.")
+				}
+				if (etapa.status !== StatusEtapa.ANDAMENTO) {
+					throw new Error("A etapa precisa estar em andamento para ser concluída.")
+				}
 				etapa.status = StatusEtapa.CONCLUIDA
 				console.log("Etapa concluída.")
 			}
@@ -654,37 +714,37 @@ async function menu() {
 
 	if (isAdmin) {
 		console.log("2. Cadastrar Funcionário")
+		console.log("3. Excluir Funcionário")
 	}
 
-	console.log("3. Listar Funcionários") 
+	console.log("4. Listar Funcionários")
 
 	if (isAdmin || isEngenheiro) {
-		console.log("4. Cadastrar Aeronave")
+		console.log("5. Cadastrar Aeronave")
 	}
-	
-	console.log("5. Listar Aeronaves") 
+
+	console.log("6. Listar Aeronaves")
 
 	if (isAdmin || isEngenheiro) {
-		console.log("6. Cadastrar Peça")
-		console.log("7. Atualizar Status da Peça")
-		console.log("8. Gerenciar Etapas (Nova/Iniciar/Fim/Excluir)")
+		console.log("7. Cadastrar Peça")
+		console.log("8. Atualizar Status da Peça")
+		console.log("9. Gerenciar Etapas (Nova/Iniciar/Fim/Excluir)")
 	}
 
-	console.log("9. Listar Etapas de Aeronave") 
+	console.log("10. Listar Etapas de Aeronave")
 
 	if (isAdmin || isEngenheiro) {
-		console.log("10. Associar Funcionário a Etapa")
+		console.log("11. Associar Funcionário a Etapa")
 	}
 
-	console.log("11. Registrar Teste")
-	console.log("12. Gerar Relatório Final")
-	console.log("13. Sair da Conta")
+	console.log("12. Registrar Teste")
+	console.log("13. Gerar Relatório Final")
+	console.log("14. Sair da Conta")
 	console.log("0. Sair do Projeto")
-	
+
 	if (isAdmin) {
 		console.log("99. Apagar todos os dados")
 	}
-	
 
 	const opcao = await perguntar("Escolha: ")
 	
@@ -693,36 +753,39 @@ async function menu() {
 			await cadastrarFuncionario()
 			break
 		case "3": 
-			listarFuncionarios()
+			await excluirFuncionario()
 			break
 		case "4": 
-			await cadastrarAeronave()
+			listarFuncionarios()
 			break
 		case "5": 
-			listarAeronaves()
+			await cadastrarAeronave()
 			break
 		case "6": 
-			await cadastrarPeca()
+			listarAeronaves()
 			break
 		case "7": 
-			await atualizarStatusPeca()
+			await cadastrarPeca()
 			break
 		case "8": 
-			await gerenciarEtapas()
+			await atualizarStatusPeca()
 			break
 		case "9": 
-			await listarEtapasDaAeronave()
+			await gerenciarEtapas()
 			break
 		case "10": 
-			await associarFuncionarioEtapa()
+			await listarEtapasDaAeronave()
 			break
 		case "11": 
-			await cadastrarTeste()
+			await associarFuncionarioEtapa()
 			break
 		case "12": 
-			await gerarRelatorio()
+			await cadastrarTeste()
 			break
 		case "13": 
+			await gerarRelatorio()
+			break
+		case "14": 
 			console.log("Saindo da conta...")
 			currentUser = null
 			console.clear()
@@ -735,8 +798,6 @@ async function menu() {
 			rl.close()
 			return
 		default:
-			// Se o Operador tentar digitar "4" de teimoso, a função cadastrarAeronave() 
-			// vai barrar ele lá dentro por causa do seu exigirNivel(). É duplamente seguro!
 			console.log("Opção inválida.")
 	}
 
